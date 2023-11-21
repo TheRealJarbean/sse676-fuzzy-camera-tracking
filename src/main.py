@@ -9,8 +9,10 @@ import numpy as np
 from picamera2 import Picamera2
 from time import sleep
 from libcamera import Transform
+from gpiozero import Servo
 
-PREVIEW_REFRESH_RATE_MS = 20
+pan_servo = Servo(17)
+PREVIEW_REFRESH_RATE_MS = 5
 
 ################## CENTROID CLASS #######################
 
@@ -88,13 +90,14 @@ def defuzzify_horizontal(membership_values):
         if membership_values[1] > 0.5:
                 if membership_values[1] > 0.8:
                         # Bring pan motor to a stop
-                        print("Stop moving in the x!")
+                        return 0
+                        
         elif membership_values[0] > 0.5:
                 # Accelerate panning motor in + direction
-                print("Accelerate in the +x!")
+                return 1
         else:
                 # Accelerate panning motor in - direction
-                print("Accelerate in the -x!")
+                return 2
 
 def defuzzify_vertical(membership_values):
         # membership_values[0] = exiting_top
@@ -104,18 +107,18 @@ def defuzzify_vertical(membership_values):
         if membership_values[1] > 0.5:
                 if membership_values[1] > 0.8:
                         # Bring tilt motor to a stop
-                        print("Stop moving in the y!")
+                        return 0
         elif membership_values[0] > 0.5:
                 # Accelerate tilting motor in - direction
-                print("Accelerate in the -y!")
+                return 1
         else:
                 # Accelerate tilting motor in + direction
-                print("Accelerate in the +y!")
+                return 2
 
 ################## END DEFUZZIFICATION FUNCTIONS ####################
 
 # Load trained XML classifier for detecting upper body
-upperbody_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_upperbody.xml')
+upperbody_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 # Create object of the Centroid class to track the upper body of subject
 # Initialize to the center of the frame
@@ -123,6 +126,8 @@ upperbody_centroid = Centroid(1920 / 2, 1080 / 2)
 
 # Establish connection to video
 camera = Picamera2()
+config = camera.create_video_configuration(main={"size":(1920, 1080)})
+camera.configure(config)
 camera.start()
 sleep(1)
 
@@ -149,8 +154,20 @@ while(True):
                 upperbody_centroid.y = y + (h / 2)
 
         # Fuzzify and defuzzify values
-        defuzzify_horizontal(fuzzify_horizontal(upperbody_centroid))
-        defuzzify_vertical(fuzzify_vertical(upperbody_centroid))
+        result_h = defuzzify_horizontal(fuzzify_horizontal(upperbody_centroid))
+        result_v = defuzzify_vertical(fuzzify_vertical(upperbody_centroid))
+
+        # Move servos
+        print(upperbody_centroid.x)
+        if result_h == 0:
+            pass
+            pan_servo.value = None
+        elif result_h == 1:
+            pan_servo.min()
+            pass
+        elif result_h == 2:
+            pan_servo.max()
+            pass
 
         # Make frame smaller for preview
         cv2.imshow("Preview", cv2.resize(frame, (1280, 720)))
