@@ -8,7 +8,7 @@ while(True):
         servo = Servo(17)
         break
     elif selection == 'pan':
-        # TODO: Plug pan servo into a different port
+        servo = Servo(27)
         break
     print('Invalid selection.')
 
