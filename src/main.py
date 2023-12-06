@@ -154,7 +154,7 @@ def defuzzify_vertical(membership_values):
 ################## END DEFUZZIFICATION FUNCTIONS ####################
 
 # Load trained XML classifier for detecting upper body
-upperbody_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+upperbody_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_upperbody.xml')
 
 # Create object of the Centroid class to track the upper body of subject
 # Initialize to the center of the frame
