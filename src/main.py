@@ -11,8 +11,44 @@ from time import sleep
 from libcamera import Transform
 from gpiozero import Servo
 
-pan_servo = Servo(17)
+pan_servo = Servo(27) # Number refers to GPIO port
+tilt_servo = Servo(17)
+
+############### CONFIGURATION #####################
+
 PREVIEW_REFRESH_RATE_MS = 5
+
+# servo.value can range from -1 to 1
+PAN_SERVO_MIN = -0.7 # Negative direction is counterclockwise
+PAN_SERVO_MAX = 0.7
+TILT_SERVO_MIN = -0.5 # Due to the motor's physical orientation, min is up, and max is down
+TILT_SERVO_MAX = 0.2
+
+############### CONFIGURATION #####################
+
+############### SERVO FUNCTIONS ###################
+
+def pan(value: float):
+    if value == 0:
+        return
+    elif pan_servo.value + value < PAN_SERVO_MIN:
+        pan_servo.value = PAN_SERVO_MIN
+    elif pan_servo.value + value > PAN_SERVO_MAX:
+        pan_servo.value = PAN_SERVO_MAX
+    else:
+        pan_servo.value += value
+
+def tilt(value: float):
+    if value == 0:
+        return
+    elif tilt_servo.value + value < TILT_SERVO_MIN:
+        tilt_servo.value = TILT_SERVO_MIN
+    elif tilt_servo.value + value > TILT_SERVO_MAX:
+        tilt_servo.value = TILT_SERVO_MAX
+    else:
+        tilt_servo.value += value
+
+############### SERVO FUNCTIONS ###################
 
 ################## CENTROID CLASS #######################
 
@@ -89,14 +125,14 @@ def defuzzify_horizontal(membership_values):
 
         if membership_values[1] > 0.5:
                 if membership_values[1] > 0.8:
-                        # Bring pan motor to a stop
+                        # Do nothing
                         return 0
                         
         elif membership_values[0] > 0.5:
-                # Accelerate panning motor in + direction
+                pan(-0.5)
                 return 1
         else:
-                # Accelerate panning motor in - direction
+                pan(0.5)
                 return 2
 
 def defuzzify_vertical(membership_values):
@@ -106,13 +142,13 @@ def defuzzify_vertical(membership_values):
 
         if membership_values[1] > 0.5:
                 if membership_values[1] > 0.8:
-                        # Bring tilt motor to a stop
+                        # Do nothing
                         return 0
         elif membership_values[0] > 0.5:
-                # Accelerate tilting motor in - direction
+                tilt(-0.5)
                 return 1
         else:
-                # Accelerate tilting motor in + direction
+                tilt(0.5)
                 return 2
 
 ################## END DEFUZZIFICATION FUNCTIONS ####################
@@ -159,15 +195,6 @@ while(True):
 
         # Move servos
         print(upperbody_centroid.x)
-        if result_h == 0:
-            pass
-            pan_servo.value = None
-        elif result_h == 1:
-            pan_servo.min()
-            pass
-        elif result_h == 2:
-            pan_servo.max()
-            pass
 
         # Make frame smaller for preview
         cv2.imshow("Preview", cv2.resize(frame, (1280, 720)))
