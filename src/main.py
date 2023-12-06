@@ -16,6 +16,7 @@ tilt_servo = Servo(17)
 
 ############### CONFIGURATION #####################
 
+PREVIEW_ENABLED = False
 PREVIEW_REFRESH_RATE_MS = 5
 
 # servo.value can range from -1 to 1
@@ -207,7 +208,8 @@ while(True):
         print(upperbody_centroid.x)
 
         # Make frame smaller for preview
-        cv2.imshow("Preview", cv2.resize(frame, (1280, 720)))
+        if PREVIEW_ENABLED:
+            cv2.imshow("Preview", cv2.resize(frame, (1280, 720)), interpolation=cv2.INTER_LINEAR)
         
         # Exit if Esc key is pressed
         keypressed = cv2.waitKey(PREVIEW_REFRESH_RATE_MS) & 0xff
