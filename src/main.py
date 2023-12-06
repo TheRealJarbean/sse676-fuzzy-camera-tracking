@@ -178,7 +178,6 @@ dropped_frames = 0
 while(True):
         # Capture a frame and process it
         frame = camera.capture_array('main')
-        frame = np.flipud(frame) # Flip frame vertically due to physical camera being upside-down
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR) # Convert color space for simpler OpenCV processing
         
         # Convert frame to grayscale
