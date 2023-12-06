@@ -9,15 +9,18 @@ import numpy as np
 from picamera2 import Picamera2
 from time import sleep
 from libcamera import Transform
-from gpiozero import Servo
+from gpiozero import Device, Servo
+from gpiozero.pins.pigpio import PiGPIOFactory
 
+Device.pin_factory = PiGPIOFactory()
 pan_servo = Servo(27) # Number refers to GPIO port
 tilt_servo = Servo(17)
 
 ############### CONFIGURATION #####################
 
-PREVIEW_ENABLED = False
+PREVIEW_ENABLED = True
 PREVIEW_REFRESH_RATE_MS = 5
+VERTICAL_ADJUST = -300 # How many pixels to shift frame based on detection area (face)
 
 # servo.value can range from -1 to 1
 PAN_SERVO_MIN = -0.7 # Negative direction is counterclockwise
@@ -48,6 +51,11 @@ def tilt(value: float):
         tilt_servo.value = TILT_SERVO_MAX
     else:
         tilt_servo.value += value
+
+def center_servos():
+    # Center pan and tilt servos
+    pan_servo.value = (PAN_SERVO_MAX + PAN_SERVO_MIN) / 2
+    tilt_servo.value = -0.4
 
 ############### SERVO FUNCTIONS ###################
 
@@ -155,7 +163,7 @@ def defuzzify_vertical(membership_values):
 ################## END DEFUZZIFICATION FUNCTIONS ####################
 
 # Load trained XML classifier for detecting upper body
-upperbody_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_upperbody.xml')
+upperbody_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 # Create object of the Centroid class to track the upper body of subject
 # Initialize to the center of the frame
@@ -168,9 +176,8 @@ camera.configure(config)
 camera.start()
 sleep(1)
 
-# Center pan and tilt servos
-pan_servo.value = (PAN_SERVO_MAX + PAN_SERVO_MIN) / 2
-tilt_servo.value = (TILT_SERVO_MAX + TILT_SERVO_MIN) / 2
+center_servos()
+sleep(5)
 
 frame_count = 0
 dropped_frames = 0
@@ -185,17 +192,18 @@ while(True):
         gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 
         # Detect upper bodies in frame
-        upperbodies = upperbody_cascade.detectMultiScale(gray)
+        upperbodies = upperbody_cascade.detectMultiScale(gray, scaleFactor=1.35, minSize=(50, 50), maxSize=(300, 300))
 
         if len(upperbodies) == 0:
-            upperbody_centroid.x = 1920 / 2
-            upperbody_centroid.y = 1080 / 2
+            #upperbody_centroid.x = 1920 / 2
+            #upperbody_centroid.y = 1080 / 2
+            center_servos()
         else:
-            for (x,y,w,h) in upperbodies: 
+            for (x,y,w,h) in upperbodies:
                 # Draw rectangle on detected upperbodies
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 2)
                 upperbody_centroid.x = x + (w / 2)
-                upperbody_centroid.y = y + (h / 2)
+                upperbody_centroid.y = y + (h / 2) - VERTICAL_ADJUST
 
         # Draw circle on centroid
         cv2.circle(frame, (int(upperbody_centroid.x), int(upperbody_centroid.y)), radius=0, color=(0, 0, 255), thickness=-1)
@@ -205,15 +213,15 @@ while(True):
         result_v = defuzzify_vertical(fuzzify_vertical(upperbody_centroid))
 
         # Move servos
-        print(upperbody_centroid.x)
+        print(f'{pan_servo.value}')
 
         # Make frame smaller for preview
         if PREVIEW_ENABLED:
-            cv2.imshow("Preview", cv2.resize(frame, (1280, 720)), interpolation=cv2.INTER_LINEAR)
+            cv2.imshow("Preview", cv2.resize(frame, (1280, 720), interpolation=cv2.INTER_LINEAR))
         
-        # Exit if Esc key is pressed
-        keypressed = cv2.waitKey(PREVIEW_REFRESH_RATE_MS) & 0xff
-        if keypressed == 27:
+            # Exit if Esc key is pressed
+            keypressed = cv2.waitKey(PREVIEW_REFRESH_RATE_MS) & 0xff
+            if keypressed == 27:
                 break
 
 # Close the video stream
