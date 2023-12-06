@@ -167,6 +167,10 @@ camera.configure(config)
 camera.start()
 sleep(1)
 
+# Center pan and tilt servos
+pan_servo.value = (PAN_SERVO_MAX + PAN_SERVO_MIN) / 2
+tilt_servo.value = (TILT_SERVO_MAX + TILT_SERVO_MIN) / 2
+
 frame_count = 0
 dropped_frames = 0
 
