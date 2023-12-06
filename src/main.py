@@ -129,10 +129,10 @@ def defuzzify_horizontal(membership_values):
                         return 0
                         
         elif membership_values[0] > 0.5:
-                pan(-0.5)
+                pan(-0.05)
                 return 1
         else:
-                pan(0.5)
+                pan(0.05)
                 return 2
 
 def defuzzify_vertical(membership_values):
@@ -145,10 +145,10 @@ def defuzzify_vertical(membership_values):
                         # Do nothing
                         return 0
         elif membership_values[0] > 0.5:
-                tilt(-0.5)
+                tilt(-0.05)
                 return 1
         else:
-                tilt(0.5)
+                tilt(0.05)
                 return 2
 
 ################## END DEFUZZIFICATION FUNCTIONS ####################
@@ -186,11 +186,18 @@ while(True):
         # Detect upper bodies in frame
         upperbodies = upperbody_cascade.detectMultiScale(gray)
 
-        for (x,y,w,h) in upperbodies: 
-        # Draw rectangle on detected upperbodies
+        if len(upperbodies) == 0:
+            upperbody_centroid.x = 1920 / 2
+            upperbody_centroid.y = 1080 / 2
+        else:
+            for (x,y,w,h) in upperbodies: 
+                # Draw rectangle on detected upperbodies
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 2)
                 upperbody_centroid.x = x + (w / 2)
                 upperbody_centroid.y = y + (h / 2)
+
+        # Draw circle on centroid
+        cv2.circle(frame, (int(upperbody_centroid.x), int(upperbody_centroid.y)), radius=0, color=(0, 0, 255), thickness=-1)
 
         # Fuzzify and defuzzify values
         result_h = defuzzify_horizontal(fuzzify_horizontal(upperbody_centroid))
