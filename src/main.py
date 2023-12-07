@@ -13,20 +13,30 @@ from gpiozero import Device, Servo
 from gpiozero.pins.pigpio import PiGPIOFactory
 
 Device.pin_factory = PiGPIOFactory()
-pan_servo = Servo(27) # Number refers to GPIO port
-tilt_servo = Servo(17)
+min_pw_pan = 1.3 / 1000
+max_pw_pan = 2.05 / 1000
+min_pw_tilt = 0.7 / 1000
+max_pw_tilt = 2.5 / 1000
+pan_servo = Servo(17, min_pulse_width=min_pw_pan, max_pulse_width=max_pw_pan, initial_value=1)
+tilt_servo = Servo(27, min_pulse_width=min_pw_tilt, max_pulse_width=max_pw_tilt)
 
 ############### CONFIGURATION #####################
 
 PREVIEW_ENABLED = True
 PREVIEW_REFRESH_RATE_MS = 5
-VERTICAL_ADJUST = -300 # How many pixels to shift frame based on detection area (face)
+VERTICAL_ADJUST = 50 # How many pixels to shift frame based on detection area (face)
+MIN_FACE_SIZE = 100 # Length of one side of a square area in pixels
+SCALE_FACTOR = 1.4 # Higher values = faster, less accurate detection; keep between 1 and 1.4
 
 # servo.value can range from -1 to 1
-PAN_SERVO_MIN = -0.7 # Negative direction is counterclockwise
-PAN_SERVO_MAX = 0.7
-TILT_SERVO_MIN = -0.5 # Due to the motor's physical orientation, min is up, and max is down
-TILT_SERVO_MAX = 0.2
+PAN_SERVO_MIN = -1 # Negative direction is counterclockwise
+PAN_SERVO_MAX = 1
+TILT_SERVO_MIN = 0.3 # Due to the motor's physical orientation, min is up, and max is down
+TILT_SERVO_MAX = 1
+
+PAN_STRENGTH = 0.06
+TILT_STRENGTH = 0.01
+FINE_ADJUSTMENT_MULT = 0.5 # Strength is multiplied by this value when subject is close to center of frame
 
 ############### CONFIGURATION #####################
 
@@ -52,10 +62,10 @@ def tilt(value: float):
     else:
         tilt_servo.value += value
 
-def center_servos():
-    # Center pan and tilt servos
+def home_servos():
+    # Home pan and tilt servos
     pan_servo.value = (PAN_SERVO_MAX + PAN_SERVO_MIN) / 2
-    tilt_servo.value = -0.4
+    tilt_servo.value = 0.5
 
 ############### SERVO FUNCTIONS ###################
 
@@ -135,14 +145,23 @@ def defuzzify_horizontal(membership_values):
         if membership_values[1] > 0.5:
                 if membership_values[1] > 0.8:
                         # Do nothing
-                        return 0
-                        
+                        print('Holding')
+                        return
+                if membership_values[0] > membership_values[2]:
+                    print('Soft right')
+                    pan(-PAN_STRENGTH * FINE_ADJUSTMENT_MULT)
+                    return
+                print('Soft left')
+                pan(PAN_STRENGTH * FINE_ADJUSTMENT_MULT)
+                return       
         elif membership_values[0] > 0.5:
-                pan(-0.05)
-                return 1
+                print('Hard right')
+                pan(-PAN_STRENGTH)
+                return
         else:
-                pan(0.05)
-                return 2
+                print('Hard left')
+                pan(PAN_STRENGTH)
+                return
 
 def defuzzify_vertical(membership_values):
         # membership_values[0] = exiting_top
@@ -152,13 +171,18 @@ def defuzzify_vertical(membership_values):
         if membership_values[1] > 0.5:
                 if membership_values[1] > 0.8:
                         # Do nothing
-                        return 0
+                        return
+                if membership_values[0] > membership_values[2]:
+                    pan(-TILT_STRENGTH * FINE_ADJUSTMENT_MULT)
+                    return
+                pan(TILT_STRENGTH * FINE_ADJUSTMENT_MULT)
+                return
         elif membership_values[0] > 0.5:
-                tilt(-0.05)
-                return 1
+                tilt(-TILT_STRENGTH)
+                return
         else:
-                tilt(0.05)
-                return 2
+                tilt(TILT_STRENGTH)
+                return
 
 ################## END DEFUZZIFICATION FUNCTIONS ####################
 
@@ -176,7 +200,7 @@ camera.configure(config)
 camera.start()
 sleep(1)
 
-center_servos()
+home_servos()
 sleep(5)
 
 frame_count = 0
@@ -192,28 +216,24 @@ while(True):
         gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 
         # Detect upper bodies in frame
-        upperbodies = upperbody_cascade.detectMultiScale(gray, scaleFactor=1.35, minSize=(50, 50), maxSize=(300, 300))
+        upperbodies = upperbody_cascade.detectMultiScale(gray, scaleFactor=SCALE_FACTOR, minSize=(MIN_FACE_SIZE, MIN_FACE_SIZE), maxSize=(300, 300))
 
         if len(upperbodies) == 0:
-            #upperbody_centroid.x = 1920 / 2
-            #upperbody_centroid.y = 1080 / 2
-            center_servos()
+            upperbody_centroid.x = 1920 / 2
+            upperbody_centroid.y = 1080 / 2
         else:
             for (x,y,w,h) in upperbodies:
                 # Draw rectangle on detected upperbodies
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 2)
                 upperbody_centroid.x = x + (w / 2)
-                upperbody_centroid.y = y + (h / 2) - VERTICAL_ADJUST
+                upperbody_centroid.y = y + (h / 2) + VERTICAL_ADJUST
 
         # Draw circle on centroid
-        cv2.circle(frame, (int(upperbody_centroid.x), int(upperbody_centroid.y)), radius=0, color=(0, 0, 255), thickness=-1)
+        cv2.circle(frame, (int(upperbody_centroid.x), int(upperbody_centroid.y)), radius=5, color=(0, 0, 255), thickness=-1)
 
         # Fuzzify and defuzzify values
-        result_h = defuzzify_horizontal(fuzzify_horizontal(upperbody_centroid))
-        result_v = defuzzify_vertical(fuzzify_vertical(upperbody_centroid))
-
-        # Move servos
-        print(f'{pan_servo.value}')
+        defuzzify_horizontal(fuzzify_horizontal(upperbody_centroid))
+        defuzzify_vertical(fuzzify_vertical(upperbody_centroid))
 
         # Make frame smaller for preview
         if PREVIEW_ENABLED:
@@ -229,3 +249,7 @@ camera.close()
 
 # Close the preview window
 cv2.destroyAllWindows()
+
+# Detach from servos
+pan_servo.detach()
+tilt_servo.detach()
