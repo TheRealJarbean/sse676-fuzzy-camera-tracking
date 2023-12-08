@@ -17,8 +17,8 @@ min_pw_pan = 1.3 / 1000
 max_pw_pan = 2.05 / 1000
 min_pw_tilt = 0.7 / 1000
 max_pw_tilt = 2.5 / 1000
-pan_servo = Servo(17, min_pulse_width=min_pw_pan, max_pulse_width=max_pw_pan, initial_value=1)
-tilt_servo = Servo(27, min_pulse_width=min_pw_tilt, max_pulse_width=max_pw_tilt)
+pan_servo = Servo(17, min_pulse_width=min_pw_pan, max_pulse_width=max_pw_pan)
+tilt_servo = Servo(27, min_pulse_width=min_pw_tilt, max_pulse_width=max_pw_tilt, initial_value=0.5)
 
 ############### CONFIGURATION #####################
 
