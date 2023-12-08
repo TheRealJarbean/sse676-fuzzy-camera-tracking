@@ -35,7 +35,7 @@ TILT_SERVO_MIN = 0.3 # Due to the motor's physical orientation, min is up, and m
 TILT_SERVO_MAX = 1
 
 PAN_STRENGTH = 0.06
-TILT_STRENGTH = 0.01
+TILT_STRENGTH = 0.02
 FINE_ADJUSTMENT_MULT = 0.5 # Strength is multiplied by this value when subject is close to center of frame
 
 ############### CONFIGURATION #####################
