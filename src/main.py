@@ -145,21 +145,16 @@ def defuzzify_horizontal(membership_values):
         if membership_values[1] > 0.5:
                 if membership_values[1] > 0.8:
                         # Do nothing
-                        print('Holding')
                         return
                 if membership_values[0] > membership_values[2]:
-                    print('Soft right')
                     pan(-PAN_STRENGTH * FINE_ADJUSTMENT_MULT)
                     return
-                print('Soft left')
                 pan(PAN_STRENGTH * FINE_ADJUSTMENT_MULT)
                 return       
         elif membership_values[0] > 0.5:
-                print('Hard right')
                 pan(-PAN_STRENGTH)
                 return
         else:
-                print('Hard left')
                 pan(PAN_STRENGTH)
                 return
 
@@ -173,9 +168,9 @@ def defuzzify_vertical(membership_values):
                         # Do nothing
                         return
                 if membership_values[0] > membership_values[2]:
-                    pan(-TILT_STRENGTH * FINE_ADJUSTMENT_MULT)
+                    tilt(-TILT_STRENGTH * FINE_ADJUSTMENT_MULT)
                     return
-                pan(TILT_STRENGTH * FINE_ADJUSTMENT_MULT)
+                tilt(TILT_STRENGTH * FINE_ADJUSTMENT_MULT)
                 return
         elif membership_values[0] > 0.5:
                 tilt(-TILT_STRENGTH)
